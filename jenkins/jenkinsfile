@@ -1,15 +1,36 @@
-stage('Deploy with Terraform') {
+// jenkins/jenkinsfile
+pipeline {
+    // 1. Définir un agent (où le travail sera exécuté)
+    agent any 
+
+    // 2. Définir les étapes du pipeline
+    stages {
+        // --- Étape de Déploiement Terraform (où votre fragment était) ---
+        stage('Deploy with Terraform') {
             steps {
+                // Le mot-clé 'script' est nécessaire ici pour utiliser des
+                // expressions Groovy complexes ou des variables (comme IMAGE_TAG)
                 script {
                     sh """
                         cd terraform
+                        
                         # Initialisation (télécharge les providers)
                         terraform init
                         
                         # Application des changements
-                        # On passe l'image en variable si votre main.tf le supporte
+                        # On passe l'image en variable. NOTE : Il faut utiliser ${env.IMAGE_TAG} 
+                        # ou déclarer IMAGE_TAG dans un bloc environment si elle vient d'une autre source.
                         sh "terraform apply -auto-approve -var='image_tag=${IMAGE_TAG}'"
                     """
                 }
             }
         }
+        
+        // Exemple d'autres étapes ici si elles existent
+        // stage('Build Docker Image') {
+        //     steps {
+        //         sh 'docker build ...'
+        //     }
+        // }
+    }
+}
