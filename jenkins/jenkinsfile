@@ -1,36 +1,49 @@
 // jenkins/jenkinsfile
 pipeline {
-    // 1. Définir un agent (où le travail sera exécuté)
+    // 1. Définir un agent
     agent any 
 
-    // 2. Définir les étapes du pipeline
+    // 2. Définir les variables d'environnement globales
+    // C'est ICI qu'on définit IMAGE_TAG pour qu'elle soit accessible partout
+    environment {
+        // Pour l'instant, on met 'latest'. 
+        // Idéalement, cela devrait être "build-${env.BUILD_NUMBER}" pour être unique.
+        IMAGE_TAG = "latest"
+    }
+
+    // 3. Options globales (Pour régler votre problème de Timeout Git précédent)
+    options {
+        timeout(time: 30, unit: 'MINUTES') // Donne 30 min au job avant de couper
+    }
+
+    // 4. Définir les étapes
     stages {
-        // --- Étape de Déploiement Terraform (où votre fragment était) ---
+        
+        // --- Étape 1 : Checkout (Automatique mais on peut le configurer si besoin) ---
+        
+        // --- Étape 2 : Déploiement Terraform ---
         stage('Deploy with Terraform') {
             steps {
-                // Le mot-clé 'script' est nécessaire ici pour utiliser des
-                // expressions Groovy complexes ou des variables (comme IMAGE_TAG)
                 script {
+                    // Le bloc 'sh' ouvre un terminal. Tout ce qui est dedans est du bash/shell.
                     sh """
+                        echo "🚀 Démarrage du déploiement pour l'image : ${IMAGE_TAG}"
+                        
                         cd terraform
                         
-                        # Initialisation (télécharge les providers)
+                        # Initialisation
+                        echo "🔹 Init Terraform..."
                         terraform init
                         
-                        # Application des changements
-                        # On passe l'image en variable. NOTE : Il faut utiliser ${env.IMAGE_TAG} 
-                        # ou déclarer IMAGE_TAG dans un bloc environment si elle vient d'une autre source.
-                        sh "terraform apply -auto-approve -var='image_tag=${IMAGE_TAG}'"
+                        # Application
+                        echo "🔹 Apply Terraform..."
+                        
+                        # CORRECTION ICI : On lance la commande terraform directement.
+                        # Pas besoin de remettre 'sh "..."' autour.
+                        terraform apply -auto-approve -var="image_tag=${IMAGE_TAG}"
                     """
                 }
             }
         }
-        
-        // Exemple d'autres étapes ici si elles existent
-        // stage('Build Docker Image') {
-        //     steps {
-        //         sh 'docker build ...'
-        //     }
-        // }
     }
 }
