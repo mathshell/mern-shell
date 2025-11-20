@@ -1,4 +1,3 @@
-# Deployment de l'application
 resource "kubernetes_deployment" "app_deployment" {
   metadata {
     name      = "mern-app"
@@ -26,11 +25,25 @@ resource "kubernetes_deployment" "app_deployment" {
 
       spec {
         container {
-          image = "localhost:8000/mern-app:latest"
+          # CORRECTION ICI : Port 32000 et variable dynamique
+          image = "localhost:32000/mern-app:${var.image_tag}"
           name  = "mern-app"
+          
+          # Force le téléchargement si vous réutilisez le tag 'latest'
+          image_pull_policy = "Always" 
 
           port {
             container_port = 3000
+          }
+
+          env {
+            name = "NODE_ENV"
+            value_from {
+              config_map_key_ref {
+                name = kubernetes_config_map.app_config.metadata[0].name
+                key  = "NODE_ENV"
+              }
+            }
           }
 
           env_from {
@@ -50,9 +63,11 @@ resource "kubernetes_deployment" "app_deployment" {
             }
           }
 
+          # ATTENTION : Vérifiez que votre code JS a bien une route GET /api/health
+          # Sinon, supprimez ce bloc ou changez le path vers "/"
           liveness_probe {
             http_get {
-              path = "/api/health"
+              path = "/" 
               port = 3000
             }
             initial_delay_seconds = 30
@@ -61,7 +76,7 @@ resource "kubernetes_deployment" "app_deployment" {
 
           readiness_probe {
             http_get {
-              path = "/api/health"
+              path = "/"
               port = 3000
             }
             initial_delay_seconds = 5
@@ -73,7 +88,6 @@ resource "kubernetes_deployment" "app_deployment" {
   }
 }
 
-# Service pour exposer l'application
 resource "kubernetes_service" "app_service" {
   metadata {
     name      = "mern-service"
@@ -94,7 +108,6 @@ resource "kubernetes_service" "app_service" {
   }
 }
 
-# Ingress pour l'accès externe
 resource "kubernetes_ingress_v1" "app_ingress" {
   metadata {
     name      = "mern-ingress"
@@ -110,6 +123,7 @@ resource "kubernetes_ingress_v1" "app_ingress" {
       http {
         path {
           path = "/"
+          path_type = "Prefix"
           backend {
             service {
               name = kubernetes_service.app_service.metadata[0].name

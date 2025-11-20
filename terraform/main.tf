@@ -11,24 +11,30 @@ terraform {
   }
 }
 
+# Déclaration de la variable pour le Tag Docker
+variable "image_tag" {
+  description = "Le tag de l'image Docker à déployer"
+  type        = string
+  default     = "latest" 
+}
+
 provider "kubernetes" {
-  config_path = "~/.kube/config"
+  # Jenkins cherchera ici (assurez-vous d'avoir fait l'étape 'cp config' précédente)
+  config_path = "/var/lib/jenkins/.kube/config" 
 }
 
 provider "helm" {
   kubernetes {
-    config_path = "~/.kube/config"
+    config_path = "/var/lib/jenkins/.kube/config"
   }
 }
 
-# Namespace pour l'application
 resource "kubernetes_namespace" "app_namespace" {
   metadata {
-    name = "ecommerce-app"
+    name = "mern-app"
   }
 }
 
-# Secret pour les variables d'environnement
 resource "kubernetes_secret" "app_secrets" {
   metadata {
     name      = "app-secrets"
@@ -36,13 +42,13 @@ resource "kubernetes_secret" "app_secrets" {
   }
 
   data = {
+    # Mettez ici les vraies infos de votre DB ou laissez temporaire
     DATABASE_URL = "mysql://user:pass@mysql-service:3306/ecommerce"
     JWT_SECRET   = "your-jwt-secret"
-    NEXTAUTH_URL = "https://your-domain.com"
+    NEXTAUTH_URL = "http://mern.local" # Mieux vaut mettre l'URL finale
   }
 }
 
-# ConfigMap pour la configuration
 resource "kubernetes_config_map" "app_config" {
   metadata {
     name      = "app-config"
@@ -50,6 +56,9 @@ resource "kubernetes_config_map" "app_config" {
   }
 
   data = {
+    # CORRECTION : Ajout de la clé requise par deployment.tf
+    NODE_ENV = "production" 
+    
     "config.js" = <<-EOT
       module.exports = {
         env: {

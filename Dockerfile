@@ -1,45 +1,35 @@
-FROM node:18-alpine AS builder
+# Étape 1 : build du frontend
+FROM node:18-alpine AS frontend-builder
+WORKDIR /frontend
 
-WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+ENV NODE_OPTIONS=--openssl-legacy-provider
 
-# Copier les fichiers de configuration
-COPY package*.json ./
-COPY next.config.js ./
-COPY tsconfig.json ./
-
-# Installer les dépendances
-RUN npm ci --only=production
-
-# Copier le code source
-COPY . .
-
-# Build l'application
 RUN npm run build
 
-# Production image
-FROM node:18-alpine AS runner
-
+# Étape 2 : build backend + intégrer frontend
+FROM node:18-alpine AS backend
 WORKDIR /app
 
-ENV NODE_ENV production
+# Copier package.json du backend et installer dépendances
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copier tout le code backend
+COPY . .
+
+# Copier le build du frontend dans /public
+COPY --from=frontend-builder /frontend/build ./public
 
 # Créer un utilisateur non-root
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copier depuis le builder
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-
-# Changer les permissions
-RUN chown -R nextjs:nodejs /app
-
-USER nextjs
+RUN addgroup -S nodejs && adduser -S mernuser
+RUN chown -R mernuser:nodejs /app
+USER mernuser
 
 EXPOSE 3000
-
-ENV PORT 3000
+ENV NODE_ENV=production
+ENV PORT=3000
 
 CMD ["npm", "start"]
