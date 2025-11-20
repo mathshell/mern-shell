@@ -35,6 +35,8 @@ resource "kubernetes_namespace" "app_namespace" {
   }
 }
 
+# terraform/main.tf (Extrait corrigé)
+
 resource "kubernetes_secret" "app_secrets" {
   metadata {
     name      = "app-secrets"
@@ -42,10 +44,15 @@ resource "kubernetes_secret" "app_secrets" {
   }
 
   data = {
-    # Mettez ici les vraies infos de votre DB ou laissez temporaire
-    DATABASE_URL = "mysql://user:pass@mysql-service:3306/ecommerce"
-    JWT_SECRET   = "your-jwt-secret"
-    NEXTAUTH_URL = "http://mern.local" # Mieux vaut mettre l'URL finale
+    # --- CORRECTION ICI ---
+    # On utilise le protocole 'mongodb://'
+    # On pointe vers le service 'mongo-service' sur le port '27017'
+    # Le nom de la base de données est 'mern-db' (créée automatiquement)
+    DATABASE_URL = "mongodb://mongo-service:27017/mern-db"
+    
+    # Vos autres secrets
+    JWT_SECRET   = "votre-super-secret-jwt"
+    NEXTAUTH_URL = "http://mern.local"
   }
 }
 
@@ -67,4 +74,11 @@ resource "kubernetes_config_map" "app_config" {
       }
     EOT
   }
+}
+# terraform/providers.tf
+
+# Configuration pour utiliser le cluster Kind
+provider "kubernetes" {
+  # Terraform utilisera le kubeconfig généré par Kind
+  config_context = "kind-mern-cluster" 
 }

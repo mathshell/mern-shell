@@ -1,45 +1,71 @@
 // jenkins/jenkinsfile
 pipeline {
-    // 1. Définir un agent
     agent any 
 
-    // 2. Définir les variables d'environnement globales
-    // C'est ICI qu'on définit IMAGE_TAG pour qu'elle soit accessible partout
     environment {
-        // Pour l'instant, on met 'latest'. 
-        // Idéalement, cela devrait être "build-${env.BUILD_NUMBER}" pour être unique.
-        IMAGE_TAG = "latest"
+        // Tag de l'image
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        IMAGE_NAME = "mern-app"
+        FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
     }
 
-    // 3. Options globales (Pour régler votre problème de Timeout Git précédent)
     options {
-        timeout(time: 30, unit: 'MINUTES') // Donne 30 min au job avant de couper
+        timeout(time: 30, unit: 'MINUTES')
     }
 
-    // 4. Définir les étapes
     stages {
         
-        // --- Étape 1 : Checkout (Automatique mais on peut le configurer si besoin) ---
+        // --- ÉTAPE 1 : Construire l'image Docker ---
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "🔨 Construction de l'image : ${FULL_IMAGE}"
+                    // On construit l'image avec un tag simple
+                    sh "docker build -t ${FULL_IMAGE} ."
+                }
+            }
+        }
+
+        // --- ÉTAPE 2 : Créer le Cluster Kind (Infra Terraform hors-Terraform) ---
+        stage('Setup Kind Cluster') {
+            steps {
+                script {
+                    echo "☁️ Démarrage du cluster Kind (mern-cluster)..."
+                    // Suppression de l'ancien cluster s'il existe
+                    sh 'kind delete cluster --name mern-cluster || true'
+                    // Création du nouveau cluster
+                    sh 'kind create cluster --name mern-cluster'
+                    // Vérification de l'accès (le kubeconfig est fusionné automatiquement)
+                    sh 'kubectl cluster-info --context kind-mern-cluster'
+                }
+            }
+        }
         
-        // --- Étape 2 : Déploiement Terraform ---
+        // --- ÉTAPE 3 : Charger l'image dans le Cluster Kind ---
+        stage('Load Image into Kind') {
+            steps {
+                script {
+                    echo "📦 Chargement de l'image ${FULL_IMAGE} dans Kind..."
+                    // Transfère l'image directement depuis le Docker local vers les nodes Kind
+                    sh "kind load docker-image ${FULL_IMAGE} --name mern-cluster"
+                }
+            }
+        }
+
+        // --- ÉTAPE 4 : Déploiement de l'Application MERN (via Terraform) ---
         stage('Deploy with Terraform') {
             steps {
                 script {
-                    // Le bloc 'sh' ouvre un terminal. Tout ce qui est dedans est du bash/shell.
+                    echo "🚀 Démarrage du déploiement avec Terraform."
                     sh """
-                        echo "🚀 Démarrage du déploiement pour l'image : ${IMAGE_TAG}"
-                        
                         cd terraform
                         
-                        # Initialisation
                         echo "🔹 Init Terraform..."
                         terraform init
                         
-                        # Application
                         echo "🔹 Apply Terraform..."
-                        
-                        # CORRECTION ICI : On lance la commande terraform directement.
-                        # Pas besoin de remettre 'sh "..."' autour.
+                        # On passe le tag unique à Terraform
+                        # L'image utilisée sera simplement 'mern-app:<tag>' car elle est déjà chargée
                         terraform apply -auto-approve -var="image_tag=${IMAGE_TAG}"
                     """
                 }
