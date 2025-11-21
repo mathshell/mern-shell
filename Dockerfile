@@ -2,7 +2,7 @@
 
 # Étape 1 : build du frontend
 # Changement : Passage à Node 16.x pour la compatibilité générale (MERN utilise souvent v14/v16)
-FROM node:14-alpine AS frontend-builder
+FROM node:18-alpine AS frontend-builder
 WORKDIR /frontend
 
 RUN npm config set fetch-retry-maxtimeout 600000
@@ -10,7 +10,7 @@ RUN npm config set fetch-retry-maxtimeout 600000
 # Copie SEULEMENT des fichiers de configuration pour le cache
 COPY frontend/package*.json ./
 # Si les fichiers package.json ne changent pas, cette étape sera mise en cache.
-RUN npm ci
+RUN npm install --only=production
 
 # Copier le reste du code et builder
 COPY frontend/ ./
@@ -21,7 +21,7 @@ RUN npm run build
 # ---
 # Étape 2 : build backend + intégrer frontend
 # Changement : Utilisation de Node 16-alpine pour être cohérent avec le frontend et éviter l'avertissement EBADENGINE (qui demandait 14.x)
-FROM node:14-alpine AS backend 
+FROM node:18-alpine AS backend 
 WORKDIR /app
 
 RUN npm config set fetch-retry-maxtimeout 600000

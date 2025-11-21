@@ -26,7 +26,8 @@ resource "kubernetes_deployment" "app_deployment" {
       spec {
         container {
           # CORRECTION ICI : Port 32000 et variable dynamique
-          image = "localhost:32000/mern-app:${var.image_tag}"
+          image = "${var.image_name}:${var.image_tag}" # Utilisez seulement le nom et le tag
+          # ...
           name  = "mern-app"
           
           # Force le téléchargement si vous réutilisez le tag 'latest'
