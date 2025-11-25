@@ -10,7 +10,7 @@ RUN npm config set fetch-retry-maxtimeout 600000
 # Copie SEULEMENT des fichiers de configuration pour le cache
 COPY frontend/package*.json ./
 # Si les fichiers package.json ne changent pas, cette étape sera mise en cache.
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copier le reste du code et builder
 COPY frontend/ ./
